@@ -1,0 +1,13 @@
+# C build artifacts
+build/
+*.o
+*.exe
+
+# PlatformIO (when consumed as a lib in a firmware project)
+.pio/
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
