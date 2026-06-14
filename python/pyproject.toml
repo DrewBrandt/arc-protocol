@@ -1,0 +1,17 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "arc-protocol"
+version = "1.0.0"
+description = "ARC protocol primitives (framing, COBS, CRC, router, reliable transport, message catalogs). Python implementation, byte-compatible with the C library."
+requires-python = ">=3.11"
+authors = [{ name = "Drew Brandt" }]
+
+# Pure-Python, stdlib only. Consumers pin this repo by commit/tag, e.g.:
+#   pip install "git+https://github.com/<you>/arc-protocol.git@v1.0.0#subdirectory=python"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["arc_protocol*"]
