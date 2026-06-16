@@ -23,7 +23,9 @@ extern "C" {
 #define ARC_FC_VIDEO_SET_SOURCE     0x02  // arc_fc_video_set_source_t
 #define ARC_FC_VIDEO_SET_OVERLAY    0x03  // null-terminated UTF-8 string
 #define ARC_FC_VIDEO_GET_STATUS     0x04  // empty payload
+#define ARC_FC_VIDEO_GET_LAYOUTS    0x05  // empty payload
 #define ARC_FC_VIDEO_STATUS_REPORT  0x10  // arc_fc_video_status_report_t
+#define ARC_FC_VIDEO_LAYOUTS_REPORT 0x11  // arc_fc_video_layouts_report_t
 
 // ----------------------------------------------------------------------
 // SET_LAYOUT: 1-byte layout id. The id maps to a named layout in the
@@ -127,6 +129,36 @@ int arc_fc_video_status_report_encode(const arc_fc_video_status_report_t* msg,
                                       uint8_t* out, size_t out_capacity);
 arc_result_t arc_fc_video_status_report_decode(const uint8_t* in, size_t len,
                                                arc_fc_video_status_report_t* msg);
+
+// ----------------------------------------------------------------------
+// LAYOUTS_REPORT: Controller's reply to GET_LAYOUTS. The Controller's
+// configured layouts in order, so a ground tool can map a 1-byte
+// layout_id (its index here) to a human-readable name.
+//
+// Wire layout:
+//   [count u8]
+//   [name UTF-8 + NUL] * count
+//
+// Compile-time caps keep the helper allocation-free. Override via -D for
+// memory-constrained targets.
+// ----------------------------------------------------------------------
+#ifndef ARC_FC_VIDEO_MAX_LAYOUTS
+#define ARC_FC_VIDEO_MAX_LAYOUTS 16
+#endif
+
+#ifndef ARC_FC_VIDEO_LAYOUT_NAME_CAP
+#define ARC_FC_VIDEO_LAYOUT_NAME_CAP 24  // bytes per name, including the NUL
+#endif
+
+typedef struct {
+    uint8_t count;
+    char names[ARC_FC_VIDEO_MAX_LAYOUTS][ARC_FC_VIDEO_LAYOUT_NAME_CAP];
+} arc_fc_video_layouts_report_t;
+
+int arc_fc_video_layouts_report_encode(const arc_fc_video_layouts_report_t* msg,
+                                       uint8_t* out, size_t out_capacity);
+arc_result_t arc_fc_video_layouts_report_decode(const uint8_t* in, size_t len,
+                                                arc_fc_video_layouts_report_t* msg);
 
 #ifdef __cplusplus
 }

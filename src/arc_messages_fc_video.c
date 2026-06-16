@@ -118,3 +118,60 @@ arc_result_t arc_fc_video_status_report_decode(const uint8_t* in, size_t len,
     }
     return ARC_OK;
 }
+
+int arc_fc_video_layouts_report_encode(const arc_fc_video_layouts_report_t* msg,
+                                       uint8_t* out, size_t out_capacity)
+{
+    if (msg == NULL || out == NULL) return ARC_ERR_BAD_ARG;
+    if (msg->count > ARC_FC_VIDEO_MAX_LAYOUTS) return ARC_ERR_BAD_ARG;
+
+    // Total size: 1 count byte + each name plus its NUL terminator.
+    size_t needed = 1;
+    for (uint8_t i = 0; i < msg->count; i++) {
+        size_t name_len = 0;
+        while (name_len < ARC_FC_VIDEO_LAYOUT_NAME_CAP &&
+               msg->names[i][name_len] != '\0') {
+            name_len++;
+        }
+        if (name_len >= ARC_FC_VIDEO_LAYOUT_NAME_CAP) return ARC_ERR_BAD_ARG;  // not terminated
+        needed += name_len + 1;
+    }
+    if (needed > ARC_MAX_PAYLOAD_SIZE) return ARC_ERR_TOO_LONG;
+    if (out_capacity < needed) return ARC_ERR_BUFFER;
+
+    size_t off = 0;
+    out[off++] = msg->count;
+    for (uint8_t i = 0; i < msg->count; i++) {
+        size_t name_len = 0;
+        while (msg->names[i][name_len] != '\0') name_len++;
+        memcpy(out + off, msg->names[i], name_len);
+        off += name_len;
+        out[off++] = '\0';
+    }
+    return (int)off;
+}
+
+arc_result_t arc_fc_video_layouts_report_decode(const uint8_t* in, size_t len,
+                                                arc_fc_video_layouts_report_t* msg)
+{
+    if (in == NULL || msg == NULL) return ARC_ERR_BAD_ARG;
+    if (len < 1) return ARC_ERR_BAD_LENGTH;
+
+    uint8_t count = in[0];
+    if (count > ARC_FC_VIDEO_MAX_LAYOUTS) return ARC_ERR_TOO_LONG;
+
+    size_t off = 1;
+    msg->count = count;
+    for (uint8_t i = 0; i < count; i++) {
+        size_t start = off;
+        while (off < len && in[off] != '\0') off++;
+        if (off >= len) return ARC_ERR_BAD_LENGTH;  // missing terminator
+        size_t name_len = off - start;
+        if (name_len + 1 > ARC_FC_VIDEO_LAYOUT_NAME_CAP) return ARC_ERR_TOO_LONG;
+        memcpy(msg->names[i], in + start, name_len);
+        msg->names[i][name_len] = '\0';
+        off++;  // skip the NUL
+    }
+    if (off != len) return ARC_ERR_BAD_LENGTH;
+    return ARC_OK;
+}

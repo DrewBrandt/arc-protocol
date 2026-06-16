@@ -1,0 +1,198 @@
+{
+  "version": 1,
+  "families": [
+    {
+      "name": "NETMGMT",
+      "id": "0x00",
+      "c_target": "src/arc_messages_netmgmt",
+      "c_type_prefix": "arc_netmgmt",
+      "type_prefix": "ARC_NETMGMT",
+      "python_enum": "NetMgmtType",
+      "messages": [
+        {
+          "name": "HEARTBEAT",
+          "type": "0x01",
+          "payload": []
+        },
+        {
+          "name": "ACK",
+          "type": "0x02",
+          "class": "Ack",
+          "c_struct": "ack",
+          "payload": [
+            {"name": "seq", "type": "u16"}
+          ]
+        },
+        {
+          "name": "SESSION_RESET",
+          "type": "0x03",
+          "payload": []
+        }
+      ]
+    },
+    {
+      "name": "FC_COORD",
+      "id": "0x01",
+      "c_target": "src/arc_messages_fc_coord",
+      "c_type_prefix": "arc_fc_coord",
+      "type_prefix": "ARC_FC_COORD",
+      "python_enum": "FcCoordType",
+      "messages": [
+        {
+          "name": "FLIGHT_TELEMETRY",
+          "type": "0x10",
+          "class": "FlightTelemetry",
+          "c_struct": "flight_telemetry",
+          "payload": [
+            {"name": "time_ms", "type": "u32"},
+            {"name": "stage", "type": "u8"},
+            {"name": "accel_x_mg", "type": "i16"},
+            {"name": "accel_y_mg", "type": "i16"},
+            {"name": "accel_z_mg", "type": "i16"},
+            {"name": "vel_x_cms", "type": "i16"},
+            {"name": "vel_y_cms", "type": "i16"},
+            {"name": "vel_z_cms", "type": "i16"},
+            {"name": "lat_e7", "type": "i32"},
+            {"name": "lon_e7", "type": "i32"},
+            {"name": "alt_cm", "type": "i32"},
+            {"name": "temp_cdeg", "type": "i16"},
+            {"name": "voltage_mv", "type": "u16"},
+            {"name": "gps_fix_quality", "type": "u8"},
+            {"name": "roll_cdeg", "type": "i16"},
+            {"name": "pitch_cdeg", "type": "i16"},
+            {"name": "yaw_cdeg", "type": "i16"}
+          ]
+        },
+        {
+          "name": "AIRBRAKE_TELEMETRY",
+          "type": "0x11",
+          "class": "AirbrakeTelemetry",
+          "c_struct": "airbrake_telemetry",
+          "payload": [
+            {"name": "time_ms", "type": "u32"},
+            {"name": "stage", "type": "u8"},
+            {"name": "accel_x_mg", "type": "i16"},
+            {"name": "accel_y_mg", "type": "i16"},
+            {"name": "accel_z_mg", "type": "i16"},
+            {"name": "vel_x_cms", "type": "i16"},
+            {"name": "vel_y_cms", "type": "i16"},
+            {"name": "vel_z_cms", "type": "i16"},
+            {"name": "temp_cdeg", "type": "i16"},
+            {"name": "voltage_mv", "type": "u16"},
+            {"name": "roll_cdeg", "type": "i16"},
+            {"name": "pitch_cdeg", "type": "i16"},
+            {"name": "yaw_cdeg", "type": "i16"},
+            {"name": "airbrake_angle_cdeg", "type": "i16"},
+            {"name": "predicted_apogee_cm", "type": "i32"},
+            {"name": "original_apogee_estimate_cm", "type": "i32"},
+            {"name": "blueraven_alt_cm", "type": "i32"}
+          ]
+        },
+        {
+          "name": "PAYLOAD_TELEMETRY",
+          "type": "0x12",
+          "class": "PayloadTelemetry",
+          "c_struct": "payload_telemetry",
+          "payload": [
+            {"name": "time_ms", "type": "u32"},
+            {"name": "stage", "type": "u8"},
+            {"name": "accel_x_mg", "type": "i16"},
+            {"name": "accel_y_mg", "type": "i16"},
+            {"name": "accel_z_mg", "type": "i16"},
+            {"name": "vel_x_cms", "type": "i16"},
+            {"name": "vel_y_cms", "type": "i16"},
+            {"name": "vel_z_cms", "type": "i16"},
+            {"name": "temp_cdeg", "type": "i16"},
+            {"name": "voltage_mv", "type": "u16"},
+            {"name": "roll_cdeg", "type": "i16"},
+            {"name": "pitch_cdeg", "type": "i16"},
+            {"name": "yaw_cdeg", "type": "i16"},
+            {"name": "motor_x_um", "type": "i32"},
+            {"name": "motor_y_um", "type": "i32"},
+            {"name": "percent_complete", "type": "u8"}
+          ]
+        }
+      ],
+      "constants": [
+        {"name": "STAGE_UNKNOWN", "value": "0x00"},
+        {"name": "STAGE_PAD", "value": "0x01"},
+        {"name": "STAGE_BOOST", "value": "0x02"},
+        {"name": "STAGE_COAST", "value": "0x03"},
+        {"name": "STAGE_DROGUE", "value": "0x04"},
+        {"name": "STAGE_MAIN", "value": "0x05"},
+        {"name": "STAGE_LANDED", "value": "0x06"},
+        {"name": "GPS_FIX_NONE", "value": "0x00"},
+        {"name": "GPS_FIX_2D", "value": "0x01"},
+        {"name": "GPS_FIX_3D", "value": "0x02"},
+        {"name": "GPS_FIX_DGPS", "value": "0x03"},
+        {"name": "GPS_FIX_RTK_FLOAT", "value": "0x04"},
+        {"name": "GPS_FIX_RTK_FIXED", "value": "0x05"}
+      ]
+    },
+    {
+      "name": "RADIO",
+      "id": "0x04",
+      "c_target": "src/arc_messages_radio",
+      "c_type_prefix": "arc_radio",
+      "type_prefix": "ARC_RADIO",
+      "python_enum": "RadioType",
+      "messages": [
+        {
+          "name": "SET_FREQUENCY",
+          "type": "0x01",
+          "class": "RadioSetFrequency",
+          "c_struct": "set_frequency",
+          "payload": [
+            {"name": "frequency_hz", "type": "u32"}
+          ]
+        },
+        {
+          "name": "SET_TX_POWER",
+          "type": "0x02",
+          "class": "RadioSetTxPower",
+          "c_struct": "set_tx_power",
+          "payload": [
+            {"name": "tx_power_dbm", "type": "i8"}
+          ]
+        },
+        {
+          "name": "GET_STATUS",
+          "type": "0x03",
+          "payload": []
+        },
+        {
+          "name": "SET_PHY_PROFILE",
+          "type": "0x04",
+          "class": "RadioSetPhyProfile",
+          "c_struct": "set_phy_profile",
+          "payload": [
+            {"name": "profile_id", "type": "u8"}
+          ]
+        },
+        {
+          "name": "STATUS_REPORT",
+          "type": "0x10",
+          "class": "RadioStatusReport",
+          "c_struct": "status_report",
+          "payload": [
+            {"name": "frequency_hz", "type": "u32"},
+            {"name": "tx_power_dbm", "type": "i8"},
+            {"name": "rssi_dbm", "type": "i8"},
+            {"name": "snr_db", "type": "i8"},
+            {"name": "error_flags", "type": "u8"},
+            {"name": "packets_rx", "type": "u16"},
+            {"name": "packets_tx", "type": "u16"}
+          ]
+        }
+      ],
+      "constants": [
+        {"name": "ERR_TX_BUSY", "value": "0x01"},
+        {"name": "ERR_PLL_UNLOCK", "value": "0x02"},
+        {"name": "ERR_OVERTEMP", "value": "0x04"},
+        {"name": "ERR_RX_OVERRUN", "value": "0x08"},
+        {"name": "PHY_PROFILE_SAFE_BW125", "value": "0x00"},
+        {"name": "PHY_PROFILE_FAST_BW500", "value": "0x01"}
+      ]
+    }
+  ]
+}

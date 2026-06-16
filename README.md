@@ -67,6 +67,19 @@ Python:
 cd python && python -m unittest discover -s tests
 ```
 
+## Message Codegen
+
+`NETMGMT`, `FC_COORD`, and `RADIO` fixed-size payload helpers are generated from
+`schema/messages.json`:
+
+```bash
+python tools/generate_messages.py
+python tools/generate_messages.py --check
+```
+
+See `docs/message_codegen.md` for the schema workflow and firmware-side
+implementation pattern.
+
 The `tests/test_vectors_conformance.py` case parses `vectors/test_vectors.txt`
 and asserts the Python build/encode/parse/decode reproduces the C output
 exactly. **Regenerate the vectors and run both test suites after any change to

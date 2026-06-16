@@ -93,3 +93,33 @@ arc_result_t arc_power_status_report_decode(const uint8_t* in, size_t len,
     msg->temp_c = (int8_t)in[off];
     return ARC_OK;
 }
+
+int arc_power_board_telemetry_encode(const arc_power_board_telemetry_t* msg,
+                                     uint8_t* out, size_t out_capacity)
+{
+    if (msg == NULL || out == NULL) return ARC_ERR_BAD_ARG;
+    if (out_capacity < ARC_POWER_BOARD_TELEMETRY_PAYLOAD_SIZE) return ARC_ERR_BUFFER;
+
+    out[0] = msg->output_on_mask;
+    out[1] = msg->output_fault_mask;
+    out[2] = (uint8_t)((msg->battery_voltage_mv >> 8) & 0xFF);
+    out[3] = (uint8_t)(msg->battery_voltage_mv & 0xFF);
+    out[4] = msg->charge_status;
+    out[5] = (uint8_t)((msg->charge_voltage_mv >> 8) & 0xFF);
+    out[6] = (uint8_t)(msg->charge_voltage_mv & 0xFF);
+    return ARC_POWER_BOARD_TELEMETRY_PAYLOAD_SIZE;
+}
+
+arc_result_t arc_power_board_telemetry_decode(const uint8_t* in, size_t len,
+                                              arc_power_board_telemetry_t* msg)
+{
+    if (in == NULL || msg == NULL) return ARC_ERR_BAD_ARG;
+    if (len != ARC_POWER_BOARD_TELEMETRY_PAYLOAD_SIZE) return ARC_ERR_BAD_LENGTH;
+
+    msg->output_on_mask = in[0];
+    msg->output_fault_mask = in[1];
+    msg->battery_voltage_mv = ((uint16_t)in[2] << 8) | (uint16_t)in[3];
+    msg->charge_status = in[4];
+    msg->charge_voltage_mv = ((uint16_t)in[5] << 8) | (uint16_t)in[6];
+    return ARC_OK;
+}

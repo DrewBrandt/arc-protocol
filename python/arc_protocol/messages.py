@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from enum import IntEnum
 
 from . import protocol
+from . import messages_generated as _gen
 
 
 class MessageError(ValueError):
@@ -31,13 +32,38 @@ class FcVideoType(IntEnum):
     SET_SOURCE = 0x02
     SET_OVERLAY = 0x03
     GET_STATUS = 0x04
+    GET_LAYOUTS = 0x05
     STATUS_REPORT = 0x10
+    LAYOUTS_REPORT = 0x11
+
+
+FcCoordType = _gen.FcCoordType
+
+FC_COORD_STAGE_UNKNOWN = _gen.FC_COORD_STAGE_UNKNOWN
+FC_COORD_STAGE_PAD = _gen.FC_COORD_STAGE_PAD
+FC_COORD_STAGE_BOOST = _gen.FC_COORD_STAGE_BOOST
+FC_COORD_STAGE_COAST = _gen.FC_COORD_STAGE_COAST
+FC_COORD_STAGE_DROGUE = _gen.FC_COORD_STAGE_DROGUE
+FC_COORD_STAGE_MAIN = _gen.FC_COORD_STAGE_MAIN
+FC_COORD_STAGE_LANDED = _gen.FC_COORD_STAGE_LANDED
+
+FC_COORD_GPS_FIX_NONE = _gen.FC_COORD_GPS_FIX_NONE
+FC_COORD_GPS_FIX_2D = _gen.FC_COORD_GPS_FIX_2D
+FC_COORD_GPS_FIX_3D = _gen.FC_COORD_GPS_FIX_3D
+FC_COORD_GPS_FIX_DGPS = _gen.FC_COORD_GPS_FIX_DGPS
+FC_COORD_GPS_FIX_RTK_FLOAT = _gen.FC_COORD_GPS_FIX_RTK_FLOAT
+FC_COORD_GPS_FIX_RTK_FIXED = _gen.FC_COORD_GPS_FIX_RTK_FIXED
+
+FlightTelemetry = _gen.FlightTelemetry
+AirbrakeTelemetry = _gen.AirbrakeTelemetry
+PayloadTelemetry = _gen.PayloadTelemetry
 
 
 class RadioType(IntEnum):
     SET_FREQUENCY = 0x01
     SET_TX_POWER = 0x02
     GET_STATUS = 0x03
+    SET_PHY_PROFILE = 0x04
     STATUS_REPORT = 0x10
 
 
@@ -47,12 +73,18 @@ RADIO_ERR_PLL_UNLOCK = 0x02
 RADIO_ERR_OVERTEMP = 0x04
 RADIO_ERR_RX_OVERRUN = 0x08
 
+# Known RADIO SET_PHY_PROFILE profile ids. These are safer than exposing raw
+# arbitrary PHY knobs for first-light and flight ops.
+RADIO_PHY_PROFILE_SAFE_BW125 = 0x00
+RADIO_PHY_PROFILE_FAST_BW500 = 0x01
+
 
 class PowerType(IntEnum):
     SET_OUTPUT = 0x01
     SET_OUTPUT_MASK = 0x02
     GET_STATUS = 0x03
     STATUS_REPORT = 0x10
+    BOARD_TELEMETRY = 0x11
 
 
 # PowerSetOutput.state and PowerChannelStatus.state values.
@@ -66,6 +98,12 @@ POWER_CHAN_FAULT_MASK = POWER_CHAN_FAULT_OVERCURRENT | POWER_CHAN_FAULT_THERMAL
 
 # Mirrors arc_messages_power.h's compile-time cap.
 POWER_MAX_CHANNELS = 8
+
+# PowerBoardTelemetry.charge_status values.
+POWER_CHARGE_UNPLUGGED = 0x00
+POWER_CHARGE_PLUGGED = 0x01
+POWER_CHARGE_CHARGING = 0x02
+POWER_CHARGE_FAULT = 0x03
 
 
 # FcVideoStatusReport.sender_flags bits.
@@ -262,6 +300,56 @@ class FcVideoStatusReport:
 
 
 @dataclass(frozen=True)
+class LayoutsReport:
+    """Controller's reply to FC_VIDEO GET_LAYOUTS.
+
+    Reports the Controller's configured layouts in order, so a ground tool can
+    map a 1-byte ``layout_id`` (its index here) to a human name.
+
+    Wire layout:
+      [layout_count u8]
+      [name UTF-8 + NUL] * layout_count
+    """
+
+    names: tuple[str, ...]
+
+    def encode(self) -> bytes:
+        if len(self.names) > 0xFF:
+            raise MessageError("LayoutsReport supports at most 255 layouts")
+        out = bytearray()
+        out.append(len(self.names))
+        for name in self.names:
+            raw = name.encode("utf-8")
+            if b"\x00" in raw:
+                raise MessageError("layout name must not contain a NUL byte")
+            out += raw
+            out.append(0)
+        if len(out) > protocol.MAX_PAYLOAD_SIZE:
+            raise MessageError("LayoutsReport payload exceeds maximum ARC payload size")
+        return bytes(out)
+
+    @classmethod
+    def decode(cls, payload: bytes) -> "LayoutsReport":
+        if len(payload) < 1:
+            raise MessageError("LayoutsReport payload truncated")
+        count = payload[0]
+        names: list[str] = []
+        offset = 1
+        for _ in range(count):
+            end = payload.find(b"\x00", offset)
+            if end < 0:
+                raise MessageError("LayoutsReport name is not NUL-terminated")
+            try:
+                names.append(payload[offset:end].decode("utf-8"))
+            except UnicodeDecodeError as exc:
+                raise MessageError("layout name must be valid UTF-8") from exc
+            offset = end + 1
+        if offset != len(payload):
+            raise MessageError("LayoutsReport payload length mismatch")
+        return cls(names=tuple(names))
+
+
+@dataclass(frozen=True)
 class RadioSetFrequency:
     frequency_hz: int
 
@@ -285,6 +373,19 @@ class RadioSetTxPower:
     def decode(cls, payload: bytes) -> "RadioSetTxPower":
         _require_len(payload, 1, "RADIO SET_TX_POWER")
         return cls(tx_power_dbm=int.from_bytes(payload, "big", signed=True))
+
+
+@dataclass(frozen=True)
+class RadioSetPhyProfile:
+    profile_id: int
+
+    def encode(self) -> bytes:
+        return _u8(self.profile_id, "profile_id").to_bytes(1, "big")
+
+    @classmethod
+    def decode(cls, payload: bytes) -> "RadioSetPhyProfile":
+        _require_len(payload, 1, "RADIO SET_PHY_PROFILE")
+        return cls(profile_id=payload[0])
 
 
 @dataclass(frozen=True)
@@ -418,6 +519,37 @@ class PowerStatusReport:
         )
 
 
+@dataclass(frozen=True)
+class PowerBoardTelemetry:
+    output_on_mask: int
+    output_fault_mask: int
+    battery_voltage_mv: int
+    charge_status: int
+    charge_voltage_mv: int
+
+    def encode(self) -> bytes:
+        return b"".join((
+            bytes((
+                _u8(self.output_on_mask, "output_on_mask"),
+                _u8(self.output_fault_mask, "output_fault_mask"),
+            )),
+            _u16(self.battery_voltage_mv, "battery_voltage_mv").to_bytes(2, "big"),
+            bytes((_u8(self.charge_status, "charge_status"),)),
+            _u16(self.charge_voltage_mv, "charge_voltage_mv").to_bytes(2, "big"),
+        ))
+
+    @classmethod
+    def decode(cls, payload: bytes) -> "PowerBoardTelemetry":
+        _require_len(payload, 7, "POWER BOARD_TELEMETRY")
+        return cls(
+            output_on_mask=payload[0],
+            output_fault_mask=payload[1],
+            battery_voltage_mv=int.from_bytes(payload[2:4], "big"),
+            charge_status=payload[4],
+            charge_voltage_mv=int.from_bytes(payload[5:7], "big"),
+        )
+
+
 def decode_netmgmt(type: int, payload: bytes) -> object | None:
     msg_type = NetMgmtType(type)
     if msg_type is NetMgmtType.ACK:
@@ -446,8 +578,17 @@ def decode_fc_video(type: int, payload: bytes) -> object | None:
         return SetOverlay.decode(payload)
     if msg_type is FcVideoType.STATUS_REPORT:
         return FcVideoStatusReport.decode(payload)
+    if msg_type is FcVideoType.LAYOUTS_REPORT:
+        return LayoutsReport.decode(payload)
     _require_empty(payload, msg_type.name)
     return None
+
+
+def decode_fc_coord(type: int, payload: bytes) -> object | None:
+    try:
+        return _gen.decode_fc_coord(type, payload)
+    except _gen.MessageError as exc:
+        raise MessageError(str(exc)) from exc
 
 
 def decode_radio(type: int, payload: bytes) -> object | None:
@@ -456,6 +597,8 @@ def decode_radio(type: int, payload: bytes) -> object | None:
         return RadioSetFrequency.decode(payload)
     if msg_type is RadioType.SET_TX_POWER:
         return RadioSetTxPower.decode(payload)
+    if msg_type is RadioType.SET_PHY_PROFILE:
+        return RadioSetPhyProfile.decode(payload)
     if msg_type is RadioType.STATUS_REPORT:
         return RadioStatusReport.decode(payload)
     _require_empty(payload, msg_type.name)
@@ -470,12 +613,14 @@ def decode_power(type: int, payload: bytes) -> object | None:
         return PowerSetOutputMask.decode(payload)
     if msg_type is PowerType.STATUS_REPORT:
         return PowerStatusReport.decode(payload)
+    if msg_type is PowerType.BOARD_TELEMETRY:
+        return PowerBoardTelemetry.decode(payload)
     _require_empty(payload, msg_type.name)
     return None
 
 
 def decode_frame_payload(frame: protocol.Frame) -> object | bytes | None:
-    """Decode known message families, leaving FC_COORD payloads opaque."""
+    """Decode known message families."""
 
     if frame.family == protocol.FAMILY_NETMGMT:
         return decode_netmgmt(frame.type, frame.payload)
@@ -488,7 +633,7 @@ def decode_frame_payload(frame: protocol.Frame) -> object | bytes | None:
     if frame.family == protocol.FAMILY_POWER:
         return decode_power(frame.type, frame.payload)
     if frame.family == protocol.FAMILY_FC_COORD:
-        return frame.payload
+        return decode_fc_coord(frame.type, frame.payload)
     raise MessageError(f"unknown message family 0x{frame.family:02x}")
 
 

@@ -4,6 +4,7 @@
 #include "../src/arc_messages_netmgmt.h"
 #include "../src/arc_messages_video.h"
 #include "../src/arc_messages_fc_video.h"
+#include "../src/arc_messages_fc_coord.h"
 #include "../src/arc_messages_radio.h"
 #include "../src/arc_messages_power.h"
 
@@ -315,6 +316,154 @@ TEST(fc_video_status_report_encode_overflow)
               ARC_ERR_BAD_ARG);
 }
 
+TEST(fc_video_layouts_report_roundtrip)
+{
+    arc_fc_video_layouts_report_t in = {0};
+    in.count = 3;
+    strcpy(in.names[0], "PIP");
+    strcpy(in.names[1], "side-by-side");
+    strcpy(in.names[2], "full-down");
+
+    uint8_t buf[64];
+    int n = arc_fc_video_layouts_report_encode(&in, buf, sizeof(buf));
+    // 1 (count) + ("PIP"+NUL=4) + ("side-by-side"+NUL=13) + ("full-down"+NUL=10)
+    ASSERT_EQ(n, 28);
+    ASSERT_EQ(buf[0], 3);
+    ASSERT_EQ(buf[1], 'P');
+    ASSERT_EQ(buf[4], '\0');
+
+    arc_fc_video_layouts_report_t out;
+    ASSERT_EQ(arc_fc_video_layouts_report_decode(buf, n, &out), ARC_OK);
+    ASSERT_EQ(out.count, 3);
+    ASSERT(strcmp(out.names[0], "PIP") == 0);
+    ASSERT(strcmp(out.names[1], "side-by-side") == 0);
+    ASSERT(strcmp(out.names[2], "full-down") == 0);
+}
+
+TEST(fc_video_layouts_report_empty)
+{
+    arc_fc_video_layouts_report_t in = {0};
+    uint8_t buf[8];
+    ASSERT_EQ(arc_fc_video_layouts_report_encode(&in, buf, sizeof(buf)), 1);
+    ASSERT_EQ(buf[0], 0);
+
+    arc_fc_video_layouts_report_t out;
+    out.count = 99;  // poison
+    ASSERT_EQ(arc_fc_video_layouts_report_decode(buf, 1, &out), ARC_OK);
+    ASSERT_EQ(out.count, 0);
+}
+
+TEST(fc_video_layouts_report_unterminated)
+{
+    const uint8_t buf[4] = {1, 'P', 'I', 'P'};  // no NUL terminator
+    arc_fc_video_layouts_report_t out;
+    ASSERT_EQ(arc_fc_video_layouts_report_decode(buf, 4, &out), ARC_ERR_BAD_LENGTH);
+}
+
+// ----------------------------------------------------------------------
+// FC_COORD TELEMETRY
+// ----------------------------------------------------------------------
+
+TEST(fc_coord_flight_telemetry_roundtrip)
+{
+    arc_fc_coord_flight_telemetry_t in = {
+        .time_ms = 123456,
+        .stage = ARC_FC_COORD_STAGE_BOOST,
+        .accel_x_mg = 12,
+        .accel_y_mg = -34,
+        .accel_z_mg = 987,
+        .vel_x_cms = 100,
+        .vel_y_cms = -50,
+        .vel_z_cms = 1234,
+        .lat_e7 = 391234567,
+        .lon_e7 = -1049876543,
+        .alt_cm = 123456,
+        .temp_cdeg = 2345,
+        .voltage_mv = 11900,
+        .gps_fix_quality = ARC_FC_COORD_GPS_FIX_3D,
+        .roll_cdeg = 120,
+        .pitch_cdeg = -450,
+        .yaw_cdeg = 9012,
+    };
+    uint8_t buf[64];
+    int n = arc_fc_coord_flight_telemetry_encode(&in, buf, sizeof(buf));
+    ASSERT_EQ(n, ARC_FC_COORD_FLIGHT_TELEMETRY_PAYLOAD_SIZE);
+    ASSERT_EQ(n, 40);
+    const uint8_t expected_prefix[] = {0x00, 0x01, 0xE2, 0x40, ARC_FC_COORD_STAGE_BOOST};
+    ASSERT_BYTES_EQ(buf, expected_prefix, sizeof(expected_prefix));
+
+    arc_fc_coord_flight_telemetry_t out;
+    ASSERT_EQ(arc_fc_coord_flight_telemetry_decode(buf, n, &out), ARC_OK);
+    ASSERT_EQ(out.time_ms, 123456);
+    ASSERT_EQ(out.stage, ARC_FC_COORD_STAGE_BOOST);
+    ASSERT_EQ(out.accel_y_mg, -34);
+    ASSERT_EQ(out.lon_e7, -1049876543);
+    ASSERT_EQ(out.yaw_cdeg, 9012);
+}
+
+TEST(fc_coord_airbrake_telemetry_roundtrip)
+{
+    arc_fc_coord_airbrake_telemetry_t in = {
+        .time_ms = 2000,
+        .stage = ARC_FC_COORD_STAGE_COAST,
+        .accel_x_mg = 1,
+        .accel_y_mg = 2,
+        .accel_z_mg = 3,
+        .vel_x_cms = 4,
+        .vel_y_cms = 5,
+        .vel_z_cms = 6,
+        .temp_cdeg = 2500,
+        .voltage_mv = 11800,
+        .roll_cdeg = 10,
+        .pitch_cdeg = 20,
+        .yaw_cdeg = 30,
+        .airbrake_angle_cdeg = 1250,
+        .predicted_apogee_cm = 305000,
+        .original_apogee_estimate_cm = 300000,
+        .blueraven_alt_cm = 125000,
+    };
+    uint8_t buf[64];
+    int n = arc_fc_coord_airbrake_telemetry_encode(&in, buf, sizeof(buf));
+    ASSERT_EQ(n, 41);
+
+    arc_fc_coord_airbrake_telemetry_t out;
+    ASSERT_EQ(arc_fc_coord_airbrake_telemetry_decode(buf, n, &out), ARC_OK);
+    ASSERT_EQ(out.airbrake_angle_cdeg, 1250);
+    ASSERT_EQ(out.predicted_apogee_cm, 305000);
+    ASSERT_EQ(out.blueraven_alt_cm, 125000);
+}
+
+TEST(fc_coord_payload_telemetry_roundtrip)
+{
+    arc_fc_coord_payload_telemetry_t in = {
+        .time_ms = 3000,
+        .stage = ARC_FC_COORD_STAGE_PAD,
+        .accel_x_mg = -1,
+        .accel_y_mg = -2,
+        .accel_z_mg = -3,
+        .vel_x_cms = 0,
+        .vel_y_cms = 0,
+        .vel_z_cms = 0,
+        .temp_cdeg = 2200,
+        .voltage_mv = 12000,
+        .roll_cdeg = 0,
+        .pitch_cdeg = 0,
+        .yaw_cdeg = 0,
+        .motor_x_um = 123000,
+        .motor_y_um = -45000,
+        .percent_complete = 42,
+    };
+    uint8_t buf[64];
+    int n = arc_fc_coord_payload_telemetry_encode(&in, buf, sizeof(buf));
+    ASSERT_EQ(n, 36);
+
+    arc_fc_coord_payload_telemetry_t out;
+    ASSERT_EQ(arc_fc_coord_payload_telemetry_decode(buf, n, &out), ARC_OK);
+    ASSERT_EQ(out.motor_x_um, 123000);
+    ASSERT_EQ(out.motor_y_um, -45000);
+    ASSERT_EQ(out.percent_complete, 42);
+}
+
 // ----------------------------------------------------------------------
 // RADIO
 // ----------------------------------------------------------------------
@@ -344,6 +493,18 @@ TEST(radio_set_tx_power_roundtrip_negative)
     arc_radio_set_tx_power_t out;
     ASSERT_EQ(arc_radio_set_tx_power_decode(buf, 1, &out), ARC_OK);
     ASSERT_EQ(out.tx_power_dbm, -10);
+}
+
+TEST(radio_set_phy_profile_roundtrip)
+{
+    arc_radio_set_phy_profile_t in = { .profile_id = ARC_RADIO_PHY_PROFILE_FAST_BW500 };
+    uint8_t buf[2];
+    ASSERT_EQ(arc_radio_set_phy_profile_encode(&in, buf, sizeof(buf)), 1);
+    ASSERT_EQ(buf[0], ARC_RADIO_PHY_PROFILE_FAST_BW500);
+
+    arc_radio_set_phy_profile_t out;
+    ASSERT_EQ(arc_radio_set_phy_profile_decode(buf, 1, &out), ARC_OK);
+    ASSERT_EQ(out.profile_id, ARC_RADIO_PHY_PROFILE_FAST_BW500);
 }
 
 TEST(radio_status_report_roundtrip)
@@ -509,6 +670,30 @@ TEST(power_status_report_decode_truncated)
               ARC_ERR_BAD_LENGTH);
 }
 
+TEST(power_board_telemetry_roundtrip)
+{
+    arc_power_board_telemetry_t in = {
+        .output_on_mask = 0x2D,
+        .output_fault_mask = 0x04,
+        .battery_voltage_mv = 11980,
+        .charge_status = ARC_POWER_CHARGE_CHARGING,
+        .charge_voltage_mv = 12600,
+    };
+    uint8_t buf[8];
+    int n = arc_power_board_telemetry_encode(&in, buf, sizeof(buf));
+    ASSERT_EQ(n, ARC_POWER_BOARD_TELEMETRY_PAYLOAD_SIZE);
+    const uint8_t expected[] = {0x2D, 0x04, 0x2E, 0xCC, 0x02, 0x31, 0x38};
+    ASSERT_BYTES_EQ(buf, expected, sizeof(expected));
+
+    arc_power_board_telemetry_t out;
+    ASSERT_EQ(arc_power_board_telemetry_decode(buf, n, &out), ARC_OK);
+    ASSERT_EQ(out.output_on_mask, 0x2D);
+    ASSERT_EQ(out.output_fault_mask, 0x04);
+    ASSERT_EQ(out.battery_voltage_mv, 11980);
+    ASSERT_EQ(out.charge_status, ARC_POWER_CHARGE_CHARGING);
+    ASSERT_EQ(out.charge_voltage_mv, 12600);
+}
+
 // ----------------------------------------------------------------------
 // Driver
 // ----------------------------------------------------------------------
@@ -535,9 +720,17 @@ int main(void)
     RUN(fc_video_status_report_empty);
     RUN(fc_video_status_report_truncated);
     RUN(fc_video_status_report_encode_overflow);
+    RUN(fc_video_layouts_report_roundtrip);
+    RUN(fc_video_layouts_report_empty);
+    RUN(fc_video_layouts_report_unterminated);
+
+    RUN(fc_coord_flight_telemetry_roundtrip);
+    RUN(fc_coord_airbrake_telemetry_roundtrip);
+    RUN(fc_coord_payload_telemetry_roundtrip);
 
     RUN(radio_set_frequency_roundtrip);
     RUN(radio_set_tx_power_roundtrip_negative);
+    RUN(radio_set_phy_profile_roundtrip);
     RUN(radio_status_report_roundtrip);
 
     RUN(power_set_output_roundtrip);
@@ -547,6 +740,7 @@ int main(void)
     RUN(power_status_report_empty);
     RUN(power_status_report_decode_overflow_channels);
     RUN(power_status_report_decode_truncated);
+    RUN(power_board_telemetry_roundtrip);
 
     printf("\n%d run, %d failed\n", tests_run, tests_failed);
     return tests_failed == 0 ? 0 : 1;

@@ -25,6 +25,7 @@ extern "C" {
 #define ARC_POWER_SET_OUTPUT_MASK  0x02  // arc_power_set_output_mask_t
 #define ARC_POWER_GET_STATUS       0x03  // empty payload
 #define ARC_POWER_STATUS_REPORT    0x10  // arc_power_status_report_t
+#define ARC_POWER_BOARD_TELEMETRY  0x11  // arc_power_board_telemetry_t
 
 // ----------------------------------------------------------------------
 // Channel-state values used by SET_OUTPUT and reported in STATUS_REPORT.
@@ -39,6 +40,12 @@ extern "C" {
 #define ARC_POWER_CHAN_FAULT_THERMAL     0x80
 #define ARC_POWER_CHAN_FAULT_MASK        (ARC_POWER_CHAN_FAULT_OVERCURRENT | \
                                           ARC_POWER_CHAN_FAULT_THERMAL)
+
+// Board-level charge-state values reported by BOARD_TELEMETRY.
+#define ARC_POWER_CHARGE_UNPLUGGED 0x00
+#define ARC_POWER_CHARGE_PLUGGED   0x01
+#define ARC_POWER_CHARGE_CHARGING  0x02
+#define ARC_POWER_CHARGE_FAULT     0x03
 
 // ----------------------------------------------------------------------
 // Channel sizing.
@@ -113,6 +120,27 @@ int arc_power_status_report_encode(const arc_power_status_report_t* msg,
                                    uint8_t* out, size_t out_capacity);
 arc_result_t arc_power_status_report_decode(const uint8_t* in, size_t len,
                                             arc_power_status_report_t* msg);
+
+// ----------------------------------------------------------------------
+// BOARD_TELEMETRY: fixed-size, high-rate board summary.
+//
+// output_on_mask and output_fault_mask use bits 0..5 for physical outputs
+// 1..6. Bits 6..7 are reserved and should be sent as zero.
+// ----------------------------------------------------------------------
+#define ARC_POWER_BOARD_TELEMETRY_PAYLOAD_SIZE 7
+
+typedef struct {
+    uint8_t  output_on_mask;
+    uint8_t  output_fault_mask;
+    uint16_t battery_voltage_mv;
+    uint8_t  charge_status;
+    uint16_t charge_voltage_mv;
+} arc_power_board_telemetry_t;
+
+int arc_power_board_telemetry_encode(const arc_power_board_telemetry_t* msg,
+                                     uint8_t* out, size_t out_capacity);
+arc_result_t arc_power_board_telemetry_decode(const uint8_t* in, size_t len,
+                                              arc_power_board_telemetry_t* msg);
 
 #ifdef __cplusplus
 }

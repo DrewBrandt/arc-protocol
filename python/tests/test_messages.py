@@ -98,6 +98,75 @@ class MessageTests(unittest.TestCase):
         with self.assertRaises(m.MessageError):
             msg.encode()
 
+    def test_flight_telemetry_round_trip(self):
+        msg = m.FlightTelemetry(
+            time_ms=123456,
+            stage=m.FC_COORD_STAGE_BOOST,
+            accel_x_mg=12,
+            accel_y_mg=-34,
+            accel_z_mg=987,
+            vel_x_cms=100,
+            vel_y_cms=-50,
+            vel_z_cms=1234,
+            lat_e7=391234567,
+            lon_e7=-1049876543,
+            alt_cm=123456,
+            temp_cdeg=2345,
+            voltage_mv=11900,
+            gps_fix_quality=m.FC_COORD_GPS_FIX_3D,
+            roll_cdeg=120,
+            pitch_cdeg=-450,
+            yaw_cdeg=9012,
+        )
+        encoded = msg.encode()
+        self.assertEqual(len(encoded), 40)
+        self.assertEqual(encoded[0:5], bytes.fromhex("0001e24002"))
+        self.assertEqual(m.FlightTelemetry.decode(encoded), msg)
+
+    def test_airbrake_and_payload_telemetry_round_trip(self):
+        airbrake = m.AirbrakeTelemetry(
+            time_ms=2000,
+            stage=m.FC_COORD_STAGE_COAST,
+            accel_x_mg=1,
+            accel_y_mg=2,
+            accel_z_mg=3,
+            vel_x_cms=4,
+            vel_y_cms=5,
+            vel_z_cms=6,
+            temp_cdeg=2500,
+            voltage_mv=11800,
+            roll_cdeg=10,
+            pitch_cdeg=20,
+            yaw_cdeg=30,
+            airbrake_angle_cdeg=1250,
+            predicted_apogee_cm=305000,
+            original_apogee_estimate_cm=300000,
+            blueraven_alt_cm=125000,
+        )
+        self.assertEqual(len(airbrake.encode()), 41)
+        self.assertEqual(m.AirbrakeTelemetry.decode(airbrake.encode()), airbrake)
+
+        payload = m.PayloadTelemetry(
+            time_ms=3000,
+            stage=m.FC_COORD_STAGE_PAD,
+            accel_x_mg=-1,
+            accel_y_mg=-2,
+            accel_z_mg=-3,
+            vel_x_cms=0,
+            vel_y_cms=0,
+            vel_z_cms=0,
+            temp_cdeg=2200,
+            voltage_mv=12000,
+            roll_cdeg=0,
+            pitch_cdeg=0,
+            yaw_cdeg=0,
+            motor_x_um=123000,
+            motor_y_um=-45000,
+            percent_complete=42,
+        )
+        self.assertEqual(len(payload.encode()), 36)
+        self.assertEqual(m.PayloadTelemetry.decode(payload.encode()), payload)
+
     def test_radio_set_frequency_round_trip(self):
         msg = m.RadioSetFrequency(frequency_hz=433_920_000)
         self.assertEqual(msg.encode(), bytes.fromhex("19dd1800"))
@@ -107,6 +176,11 @@ class MessageTests(unittest.TestCase):
         msg = m.RadioSetTxPower(tx_power_dbm=-10)
         self.assertEqual(msg.encode(), bytes((0xF6,)))
         self.assertEqual(m.RadioSetTxPower.decode(msg.encode()), msg)
+
+    def test_radio_set_phy_profile_round_trip(self):
+        msg = m.RadioSetPhyProfile(profile_id=m.RADIO_PHY_PROFILE_FAST_BW500)
+        self.assertEqual(msg.encode(), bytes((m.RADIO_PHY_PROFILE_FAST_BW500,)))
+        self.assertEqual(m.RadioSetPhyProfile.decode(msg.encode()), msg)
 
     def test_radio_status_report_round_trip(self):
         msg = m.RadioStatusReport(
@@ -179,6 +253,17 @@ class MessageTests(unittest.TestCase):
         with self.assertRaises(m.MessageError):
             m.PowerStatusReport.decode(bytes((2, 0x01, 0x00, 0xC8, 0x00, 0x00, 0x00, 0x13, 0x88)))
 
+    def test_power_board_telemetry_round_trip(self):
+        msg = m.PowerBoardTelemetry(
+            output_on_mask=0b00101101,
+            output_fault_mask=0b00000100,
+            battery_voltage_mv=11980,
+            charge_status=m.POWER_CHARGE_CHARGING,
+            charge_voltage_mv=12600,
+        )
+        self.assertEqual(msg.encode(), bytes.fromhex("2d042ecc023138"))
+        self.assertEqual(m.PowerBoardTelemetry.decode(msg.encode()), msg)
+
     def test_decode_frame_payload_for_radio_and_power(self):
         radio_frame = p.Frame(
             src=p.ADDR_FC_N,
@@ -203,6 +288,20 @@ class MessageTests(unittest.TestCase):
         self.assertEqual(
             m.decode_frame_payload(radio_frame),
             m.RadioSetFrequency(433_920_000),
+        )
+        phy_frame = p.Frame(
+            src=p.ADDR_FC_N,
+            dst=p.ADDR_RADIO_CMD,
+            flags=p.FLAG_RELIABLE,
+            session=1,
+            seq=6,
+            family=p.FAMILY_RADIO,
+            type=m.RadioType.SET_PHY_PROFILE,
+            payload=m.RadioSetPhyProfile(m.RADIO_PHY_PROFILE_FAST_BW500).encode(),
+        )
+        self.assertEqual(
+            m.decode_frame_payload(phy_frame),
+            m.RadioSetPhyProfile(m.RADIO_PHY_PROFILE_FAST_BW500),
         )
         self.assertEqual(
             m.decode_frame_payload(power_frame),
@@ -275,6 +374,25 @@ class MessageTests(unittest.TestCase):
             type=m.FcVideoType.SET_SOURCE,
             payload=m.SetSource(1, p.ADDR_SENDER_AIRBRAKE).encode(),
         )
+        fc_coord_msg = m.FlightTelemetry(
+            time_ms=1,
+            stage=m.FC_COORD_STAGE_PAD,
+            accel_x_mg=0,
+            accel_y_mg=0,
+            accel_z_mg=1000,
+            vel_x_cms=0,
+            vel_y_cms=0,
+            vel_z_cms=0,
+            lat_e7=0,
+            lon_e7=0,
+            alt_cm=0,
+            temp_cdeg=2000,
+            voltage_mv=12000,
+            gps_fix_quality=m.FC_COORD_GPS_FIX_NONE,
+            roll_cdeg=0,
+            pitch_cdeg=0,
+            yaw_cdeg=0,
+        )
         fc_coord = p.Frame(
             src=p.ADDR_FC_C,
             dst=p.ADDR_FC_N,
@@ -282,13 +400,13 @@ class MessageTests(unittest.TestCase):
             session=1,
             seq=3,
             family=p.FAMILY_FC_COORD,
-            type=0x99,
-            payload=b"opaque",
+            type=m.FcCoordType.FLIGHT_TELEMETRY,
+            payload=fc_coord_msg.encode(),
         )
 
         self.assertEqual(m.decode_frame_payload(video), m.SetBitrate(1_000_000))
         self.assertEqual(m.decode_frame_payload(fc_video), m.SetSource(1, p.ADDR_SENDER_AIRBRAKE))
-        self.assertEqual(m.decode_frame_payload(fc_coord), b"opaque")
+        self.assertEqual(m.decode_frame_payload(fc_coord), fc_coord_msg)
 
     def test_unknown_type_or_family_rejected(self):
         with self.assertRaises(ValueError):
