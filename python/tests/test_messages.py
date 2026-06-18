@@ -49,6 +49,35 @@ class MessageTests(unittest.TestCase):
         self.assertEqual(msg.encode(), b"KD3BBP flight\x00")
         self.assertEqual(m.SetOverlay.decode(msg.encode()), msg)
 
+    def test_video_info_report_round_trip(self):
+        msg = m.VideoInfoReport(name="airbrake-cam", paired_fc=p.ADDR_FC_N)
+
+        self.assertEqual(msg.encode(), bytes((p.ADDR_FC_N,)) + b"airbrake-cam\x00")
+        self.assertEqual(m.VideoInfoReport.decode(msg.encode()), msg)
+        self.assertEqual(
+            m.decode_video(m.VideoType.INFO_REPORT, msg.encode()), msg
+        )
+
+    def test_video_info_report_no_paired_fc_and_empty_name(self):
+        msg = m.VideoInfoReport(name="")
+
+        self.assertEqual(msg.paired_fc, p.ADDR_UNASSIGNED)
+        self.assertEqual(msg.encode(), b"\x00\x00")
+        self.assertEqual(m.VideoInfoReport.decode(msg.encode()), msg)
+
+    def test_video_info_report_rejects_unterminated(self):
+        with self.assertRaises(m.MessageError):
+            m.VideoInfoReport.decode(b"\x02airbrake-cam")
+
+    def test_video_info_report_rejects_nul_in_name(self):
+        with self.assertRaises(m.MessageError):
+            m.VideoInfoReport(name="bad\x00name").encode()
+
+    def test_video_get_info_has_empty_payload(self):
+        self.assertIsNone(m.decode_video(m.VideoType.GET_INFO, b""))
+        with self.assertRaises(m.MessageError):
+            m.decode_video(m.VideoType.GET_INFO, b"\x01")
+
     def test_fc_video_status_report_round_trip(self):
         msg = m.FcVideoStatusReport(
             slots=(p.ADDR_CONTROLLER, p.ADDR_SENDER_AIRBRAKE),

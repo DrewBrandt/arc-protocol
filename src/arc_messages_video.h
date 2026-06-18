@@ -23,7 +23,9 @@ extern "C" {
 #define ARC_VIDEO_STOP_STREAM    0x02  // empty payload (soft stop)
 #define ARC_VIDEO_HARD_STOP      0x03  // empty payload (stop tx + recording)
 #define ARC_VIDEO_SET_BITRATE    0x04  // arc_video_set_bitrate_t
+#define ARC_VIDEO_GET_INFO       0x05  // empty payload (request INFO_REPORT)
 #define ARC_VIDEO_STATUS_REPORT  0x10  // arc_video_status_report_t
+#define ARC_VIDEO_INFO_REPORT    0x11  // arc_video_info_report_t
 
 // ----------------------------------------------------------------------
 // SET_BITRATE: 4-byte big-endian unsigned bitrate in bits per second.
@@ -68,6 +70,31 @@ int arc_video_status_report_encode(const arc_video_status_report_t* msg,
                                    uint8_t* out, size_t out_capacity);
 arc_result_t arc_video_status_report_decode(const uint8_t* in, size_t len,
                                             arc_video_status_report_t* msg);
+
+// ----------------------------------------------------------------------
+// INFO_REPORT: a Sender's reply to GET_INFO, carrying its human-friendly
+// name and paired flight computer so the Controller can identify a
+// discovered Sender without pre-declaring it in config. Field order:
+//
+//   [paired_fc u8]  (0x00 = ARC_ADDR_UNASSIGNED = no paired FC)
+//   [name UTF-8 + NUL]
+//
+// ``name`` is a NUL-terminated string capped at ARC_VIDEO_NAME_CAP bytes
+// including the terminator.
+// ----------------------------------------------------------------------
+#ifndef ARC_VIDEO_NAME_CAP
+#define ARC_VIDEO_NAME_CAP 32
+#endif
+
+typedef struct {
+    uint8_t paired_fc;                // 0 = none
+    char    name[ARC_VIDEO_NAME_CAP]; // NUL-terminated
+} arc_video_info_report_t;
+
+int arc_video_info_report_encode(const arc_video_info_report_t* msg,
+                                 uint8_t* out, size_t out_capacity);
+arc_result_t arc_video_info_report_decode(const uint8_t* in, size_t len,
+                                          arc_video_info_report_t* msg);
 
 #ifdef __cplusplus
 }

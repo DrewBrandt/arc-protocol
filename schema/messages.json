@@ -170,6 +170,17 @@
           ]
         },
         {
+          "name": "START_HOPPING",
+          "type": "0x05",
+          "payload": []
+        },
+        {
+          "name": "DATA_DOWNLINK",
+          "type": "0x06",
+          "doc": "Opaque downlink frame for a non-ARC radio (e.g. RADIO_DATA). The ARC payload is the verbatim vendor frame (RadioMessage/APRS); the receiving node transmits it as-is. Payload is variable-length and not described by the codegen.",
+          "payload": []
+        },
+        {
           "name": "STATUS_REPORT",
           "type": "0x10",
           "class": "RadioStatusReport",

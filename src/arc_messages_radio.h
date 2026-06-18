@@ -16,6 +16,8 @@ extern "C" {
 #define ARC_RADIO_SET_TX_POWER           0x02
 #define ARC_RADIO_GET_STATUS             0x03
 #define ARC_RADIO_SET_PHY_PROFILE        0x04
+#define ARC_RADIO_START_HOPPING          0x05
+#define ARC_RADIO_DATA_DOWNLINK          0x06
 #define ARC_RADIO_STATUS_REPORT          0x10
 
 #define ARC_RADIO_ERR_TX_BUSY            0x01

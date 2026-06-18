@@ -3,6 +3,8 @@
 
 #include "arc_messages_video.h"
 
+#include <string.h>
+
 int arc_video_set_bitrate_encode(const arc_video_set_bitrate_t* msg,
                                  uint8_t* out, size_t out_capacity)
 {
@@ -58,5 +60,41 @@ arc_result_t arc_video_status_report_decode(const uint8_t* in, size_t len,
     msg->rssi_dbm       = (int8_t)in[5];
     msg->tx_frames      = ((uint16_t)in[6] << 8) | (uint16_t)in[7];
     msg->dropped_frames = ((uint16_t)in[8] << 8) | (uint16_t)in[9];
+    return ARC_OK;
+}
+
+int arc_video_info_report_encode(const arc_video_info_report_t* msg,
+                                 uint8_t* out, size_t out_capacity)
+{
+    if (msg == NULL || out == NULL) return ARC_ERR_BAD_ARG;
+
+    size_t name_len = 0;
+    while (name_len < ARC_VIDEO_NAME_CAP && msg->name[name_len] != '\0') {
+        name_len++;
+    }
+    if (name_len >= ARC_VIDEO_NAME_CAP) return ARC_ERR_BAD_ARG;  // not terminated
+
+    size_t needed = 1 + name_len + 1;  // paired_fc + name + NUL
+    if (needed > ARC_MAX_PAYLOAD_SIZE) return ARC_ERR_TOO_LONG;
+    if (out_capacity < needed) return ARC_ERR_BUFFER;
+
+    out[0] = msg->paired_fc;
+    memcpy(out + 1, msg->name, name_len);
+    out[1 + name_len] = '\0';
+    return (int)needed;
+}
+
+arc_result_t arc_video_info_report_decode(const uint8_t* in, size_t len,
+                                          arc_video_info_report_t* msg)
+{
+    if (in == NULL || msg == NULL) return ARC_ERR_BAD_ARG;
+    if (len < 2 || in[len - 1] != '\0') return ARC_ERR_BAD_LENGTH;
+
+    size_t name_len = len - 2;  // exclude paired_fc byte and trailing NUL
+    if (name_len + 1 > ARC_VIDEO_NAME_CAP) return ARC_ERR_TOO_LONG;
+
+    msg->paired_fc = in[0];
+    memcpy(msg->name, in + 1, name_len);
+    msg->name[name_len] = '\0';
     return ARC_OK;
 }

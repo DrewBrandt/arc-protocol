@@ -24,7 +24,9 @@ class VideoType(IntEnum):
     STOP_STREAM = 0x02
     HARD_STOP = 0x03
     SET_BITRATE = 0x04
+    GET_INFO = 0x05
     STATUS_REPORT = 0x10
+    INFO_REPORT = 0x11
 
 
 class FcVideoType(IntEnum):
@@ -181,6 +183,51 @@ class StatusReport:
             tx_frames=int.from_bytes(payload[6:8], "big"),
             dropped_frames=int.from_bytes(payload[8:10], "big"),
         )
+
+
+@dataclass(frozen=True)
+class VideoInfoReport:
+    """A Sender's reply to VIDEO GET_INFO.
+
+    Lets the Controller learn a Sender's human-friendly name (and which
+    flight computer it is paired with, if any) at discovery time instead
+    of pre-declaring it in controller config. A Sender is otherwise
+    identified by its fixed ARC address; this carries the descriptive
+    bits that don't fit in an address.
+
+    Wire layout:
+      [paired_fc u8]   (0x00 = ADDR_UNASSIGNED = no paired FC)
+      [name UTF-8 + NUL]
+    """
+
+    name: str
+    paired_fc: int = protocol.ADDR_UNASSIGNED
+
+    def encode(self) -> bytes:
+        raw = self.name.encode("utf-8")
+        if b"\x00" in raw:
+            raise MessageError("sender name must not contain a NUL byte")
+        out = bytearray()
+        out.append(_u8(self.paired_fc, "paired_fc"))
+        out += raw
+        out.append(0)
+        if len(out) > protocol.MAX_PAYLOAD_SIZE:
+            raise MessageError(
+                "VIDEO INFO_REPORT payload exceeds maximum ARC payload size"
+            )
+        return bytes(out)
+
+    @classmethod
+    def decode(cls, payload: bytes) -> "VideoInfoReport":
+        if len(payload) < 2:
+            raise MessageError("VIDEO INFO_REPORT payload truncated")
+        if not payload.endswith(b"\x00"):
+            raise MessageError("VIDEO INFO_REPORT name must be null-terminated")
+        try:
+            name = payload[1:-1].decode("utf-8")
+        except UnicodeDecodeError as exc:
+            raise MessageError("VIDEO INFO_REPORT name must be valid UTF-8") from exc
+        return cls(name=name, paired_fc=payload[0])
 
 
 @dataclass(frozen=True)
@@ -564,6 +611,8 @@ def decode_video(type: int, payload: bytes) -> object | None:
         return SetBitrate.decode(payload)
     if msg_type is VideoType.STATUS_REPORT:
         return StatusReport.decode(payload)
+    if msg_type is VideoType.INFO_REPORT:
+        return VideoInfoReport.decode(payload)
     _require_empty(payload, msg_type.name)
     return None
 

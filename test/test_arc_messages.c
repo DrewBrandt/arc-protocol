@@ -150,6 +150,48 @@ TEST(video_status_report_roundtrip)
     ASSERT_EQ(out.dropped_frames, 2);
 }
 
+TEST(video_info_report_roundtrip)
+{
+    arc_video_info_report_t in = { .paired_fc = ARC_ADDR_FC_N };
+    strcpy(in.name, "airbrake-cam");
+
+    uint8_t buf[64];
+    int n = arc_video_info_report_encode(&in, buf, sizeof(buf));
+    // 1 (paired_fc) + ("airbrake-cam"+NUL=13) = 14
+    ASSERT_EQ(n, 14);
+    ASSERT_EQ(buf[0], ARC_ADDR_FC_N);
+    ASSERT_EQ(buf[1], 'a');
+    ASSERT_EQ(buf[13], '\0');
+
+    arc_video_info_report_t out;
+    ASSERT_EQ(arc_video_info_report_decode(buf, n, &out), ARC_OK);
+    ASSERT_EQ(out.paired_fc, ARC_ADDR_FC_N);
+    ASSERT(strcmp(out.name, "airbrake-cam") == 0);
+}
+
+TEST(video_info_report_empty_name_no_fc)
+{
+    arc_video_info_report_t in = {0};  // paired_fc=0, name=""
+    uint8_t buf[8];
+    int n = arc_video_info_report_encode(&in, buf, sizeof(buf));
+    ASSERT_EQ(n, 2);
+    ASSERT_EQ(buf[0], 0x00);
+    ASSERT_EQ(buf[1], '\0');
+
+    arc_video_info_report_t out;
+    ASSERT_EQ(arc_video_info_report_decode(buf, n, &out), ARC_OK);
+    ASSERT_EQ(out.paired_fc, 0);
+    ASSERT_EQ(out.name[0], '\0');
+}
+
+TEST(video_info_report_decode_rejects_unterminated)
+{
+    const uint8_t bad[] = { ARC_ADDR_FC_N, 'c', 'a', 'm' };
+    arc_video_info_report_t out;
+    ASSERT_EQ(arc_video_info_report_decode(bad, sizeof(bad), &out),
+              ARC_ERR_BAD_LENGTH);
+}
+
 TEST(video_status_report_negative_rssi_extreme)
 {
     arc_video_status_report_t in = {0};
@@ -710,6 +752,9 @@ int main(void)
     RUN(video_set_bitrate_max);
     RUN(video_status_report_roundtrip);
     RUN(video_status_report_negative_rssi_extreme);
+    RUN(video_info_report_roundtrip);
+    RUN(video_info_report_empty_name_no_fc);
+    RUN(video_info_report_decode_rejects_unterminated);
 
     RUN(fc_video_set_layout_roundtrip);
     RUN(fc_video_set_source_roundtrip);
