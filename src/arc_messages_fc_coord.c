@@ -301,3 +301,23 @@ arc_result_t arc_fc_coord_payload_telemetry_decode(const uint8_t* in, size_t len
     msg->percent_complete = in[35];
     return ARC_OK;
 }
+
+int arc_fc_coord_set_airbrake_angle_encode(const arc_fc_coord_set_airbrake_angle_t* msg,
+                                   uint8_t* out, size_t out_capacity)
+{
+    if (msg == NULL || out == NULL) return ARC_ERR_BAD_ARG;
+    if (out_capacity < ARC_FC_COORD_SET_AIRBRAKE_ANGLE_PAYLOAD_SIZE) return ARC_ERR_BUFFER;
+    uint16_t angle_cdeg_wire = (uint16_t)msg->angle_cdeg;
+    out[0] = (uint8_t)((angle_cdeg_wire >> 8) & 0xFF);
+    out[1] = (uint8_t)(angle_cdeg_wire & 0xFF);
+    return ARC_FC_COORD_SET_AIRBRAKE_ANGLE_PAYLOAD_SIZE;
+}
+
+arc_result_t arc_fc_coord_set_airbrake_angle_decode(const uint8_t* in, size_t len,
+                                            arc_fc_coord_set_airbrake_angle_t* msg)
+{
+    if (in == NULL || msg == NULL) return ARC_ERR_BAD_ARG;
+    if (len != ARC_FC_COORD_SET_AIRBRAKE_ANGLE_PAYLOAD_SIZE) return ARC_ERR_BAD_LENGTH;
+    msg->angle_cdeg = (int16_t)(((uint16_t)in[0] << 8) | (uint16_t)in[1]);
+    return ARC_OK;
+}

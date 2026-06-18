@@ -15,6 +15,7 @@ extern "C" {
 #define ARC_FC_COORD_FLIGHT_TELEMETRY    0x10
 #define ARC_FC_COORD_AIRBRAKE_TELEMETRY  0x11
 #define ARC_FC_COORD_PAYLOAD_TELEMETRY   0x12
+#define ARC_FC_COORD_SET_AIRBRAKE_ANGLE  0x22
 
 #define ARC_FC_COORD_STAGE_UNKNOWN       0x00
 #define ARC_FC_COORD_STAGE_PAD           0x01
@@ -109,6 +110,17 @@ int arc_fc_coord_payload_telemetry_encode(const arc_fc_coord_payload_telemetry_t
                                    uint8_t* out, size_t out_capacity);
 arc_result_t arc_fc_coord_payload_telemetry_decode(const uint8_t* in, size_t len,
                                             arc_fc_coord_payload_telemetry_t* msg);
+
+#define ARC_FC_COORD_SET_AIRBRAKE_ANGLE_PAYLOAD_SIZE 0x02
+
+typedef struct {
+    int16_t angle_cdeg;
+} arc_fc_coord_set_airbrake_angle_t;
+
+int arc_fc_coord_set_airbrake_angle_encode(const arc_fc_coord_set_airbrake_angle_t* msg,
+                                   uint8_t* out, size_t out_capacity);
+arc_result_t arc_fc_coord_set_airbrake_angle_decode(const uint8_t* in, size_t len,
+                                            arc_fc_coord_set_airbrake_angle_t* msg);
 
 #ifdef __cplusplus
 }

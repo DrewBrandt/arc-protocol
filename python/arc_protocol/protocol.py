@@ -9,7 +9,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 
-PROTOCOL_VERSION = 1
+PROTOCOL_VERSION = 2
 
 HEADER_SIZE = 9
 CRC_SIZE = 2
@@ -45,6 +45,7 @@ ADDR_BROADCAST = 0xFF
 FLAG_RELIABLE = 0x01
 FLAG_URGENT = 0x02
 FLAG_ACK = 0x04
+FLAG_MORE = 0x08  # superframe MAC: more downlink frames follow in this superframe
 
 FAMILY_NETMGMT = 0x00
 FAMILY_FC_COORD = 0x01
@@ -56,6 +57,7 @@ FAMILY_POWER = 0x05
 NETMGMT_HEARTBEAT = 0x01
 NETMGMT_ACK = 0x02
 NETMGMT_SESSION_RESET = 0x03
+NETMGMT_BEACON = 0x04  # superframe MAC beacon (see SUPERFRAME_MAC)
 
 
 class ArcProtocolError(ValueError):

@@ -5,11 +5,32 @@ from arc_protocol import protocol as p
 
 
 class MessageTests(unittest.TestCase):
+    def test_set_airbrake_angle_round_trip(self):
+        command = m.SetAirbrakeAngle(angle_cdeg=1234)
+
+        self.assertEqual(command.encode(), bytes.fromhex("04d2"))
+        self.assertEqual(m.SetAirbrakeAngle.decode(command.encode()), command)
+        self.assertEqual(
+            m.decode_fc_coord(
+                int(m.FcCoordType.SET_AIRBRAKE_ANGLE), command.encode()
+            ),
+            command,
+        )
+
     def test_ack_round_trip(self):
         ack = m.Ack(seq=0xABCD)
 
         self.assertEqual(ack.encode(), bytes.fromhex("abcd"))
         self.assertEqual(m.Ack.decode(ack.encode()), ack)
+
+    def test_beacon_round_trip(self):
+        beacon = m.Beacon(hop_index=0x01020304, frame_count=9, flags=0x01)
+
+        self.assertEqual(beacon.encode(), bytes.fromhex("010203040901"))
+        self.assertEqual(m.Beacon.decode(beacon.encode()), beacon)
+        self.assertEqual(
+            m.decode_netmgmt(p.NETMGMT_BEACON, beacon.encode()), beacon
+        )
 
     def test_video_set_bitrate_round_trip(self):
         msg = m.SetBitrate(bitrate_bps=2_500_000)

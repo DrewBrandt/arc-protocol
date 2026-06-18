@@ -27,6 +27,17 @@
           "name": "SESSION_RESET",
           "type": "0x03",
           "payload": []
+        },
+        {
+          "name": "BEACON",
+          "type": "0x04",
+          "class": "Beacon",
+          "c_struct": "beacon",
+          "payload": [
+            {"name": "hop_index", "type": "u32"},
+            {"name": "frame_count", "type": "u8"},
+            {"name": "flags", "type": "u8"}
+          ]
         }
       ]
     },
@@ -110,6 +121,15 @@
             {"name": "motor_x_um", "type": "i32"},
             {"name": "motor_y_um", "type": "i32"},
             {"name": "percent_complete", "type": "u8"}
+          ]
+        },
+        {
+          "name": "SET_AIRBRAKE_ANGLE",
+          "type": "0x22",
+          "class": "SetAirbrakeAngle",
+          "c_struct": "set_airbrake_angle",
+          "payload": [
+            {"name": "angle_cdeg", "type": "i16"}
           ]
         }
       ],

@@ -210,3 +210,21 @@ int arc_frame_build_ack(uint8_t* out, size_t out_capacity,
         ack_payload,
         sizeof(ack_payload));
 }
+
+arc_result_t arc_frame_set_flag(uint8_t* frame, size_t len, uint8_t flag)
+{
+    if (frame == NULL) return ARC_ERR_BAD_ARG;
+    if (len < ARC_OVERHEAD) return ARC_ERR_TOO_SHORT;
+    if (len > ARC_MAX_FRAME_SIZE) return ARC_ERR_TOO_LONG;
+    // LEN counts everything after itself, up to and including CRC.
+    if ((size_t)frame[0] + 1 != len) return ARC_ERR_BAD_LENGTH;
+
+    frame[3] |= flag;  // FLAGS is byte index 3
+
+    // Recompute CRC over LEN through end-of-payload (everything but the CRC).
+    const size_t crc_region = len - ARC_CRC_SIZE;
+    const uint16_t crc = arc_crc16(frame, crc_region);
+    frame[crc_region]     = (uint8_t)(crc >> 8);
+    frame[crc_region + 1] = (uint8_t)(crc & 0xFF);
+    return ARC_OK;
+}

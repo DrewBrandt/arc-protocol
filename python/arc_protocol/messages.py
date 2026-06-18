@@ -17,6 +17,11 @@ class NetMgmtType(IntEnum):
     HEARTBEAT = protocol.NETMGMT_HEARTBEAT
     ACK = protocol.NETMGMT_ACK
     SESSION_RESET = protocol.NETMGMT_SESSION_RESET
+    BEACON = protocol.NETMGMT_BEACON
+
+
+# Superframe MAC beacon. Generated; re-exported here as public API.
+Beacon = _gen.Beacon
 
 
 class VideoType(IntEnum):
@@ -59,6 +64,7 @@ FC_COORD_GPS_FIX_RTK_FIXED = _gen.FC_COORD_GPS_FIX_RTK_FIXED
 FlightTelemetry = _gen.FlightTelemetry
 AirbrakeTelemetry = _gen.AirbrakeTelemetry
 PayloadTelemetry = _gen.PayloadTelemetry
+SetAirbrakeAngle = _gen.SetAirbrakeAngle
 
 
 class RadioType(IntEnum):
@@ -66,6 +72,8 @@ class RadioType(IntEnum):
     SET_TX_POWER = 0x02
     GET_STATUS = 0x03
     SET_PHY_PROFILE = 0x04
+    START_HOPPING = 0x05
+    DATA_DOWNLINK = 0x06
     STATUS_REPORT = 0x10
 
 
@@ -601,6 +609,8 @@ def decode_netmgmt(type: int, payload: bytes) -> object | None:
     msg_type = NetMgmtType(type)
     if msg_type is NetMgmtType.ACK:
         return Ack.decode(payload)
+    if msg_type is NetMgmtType.BEACON:
+        return Beacon.decode(payload)
     _require_empty(payload, msg_type.name)
     return None
 

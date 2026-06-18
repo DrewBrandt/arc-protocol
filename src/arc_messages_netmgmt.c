@@ -22,3 +22,32 @@ arc_result_t arc_netmgmt_ack_decode(const uint8_t* in, size_t len,
     msg->seq = ((uint16_t)in[0] << 8) | (uint16_t)in[1];
     return ARC_OK;
 }
+
+int arc_netmgmt_beacon_encode(const arc_netmgmt_beacon_t* msg,
+                                   uint8_t* out, size_t out_capacity)
+{
+    if (msg == NULL || out == NULL) return ARC_ERR_BAD_ARG;
+    if (out_capacity < ARC_NETMGMT_BEACON_PAYLOAD_SIZE) return ARC_ERR_BUFFER;
+    out[0] = (uint8_t)((msg->hop_index >> 24) & 0xFF);
+    out[1] = (uint8_t)((msg->hop_index >> 16) & 0xFF);
+    out[2] = (uint8_t)((msg->hop_index >> 8) & 0xFF);
+    out[3] = (uint8_t)(msg->hop_index & 0xFF);
+    out[4] = msg->frame_count;
+    out[5] = msg->flags;
+    return ARC_NETMGMT_BEACON_PAYLOAD_SIZE;
+}
+
+arc_result_t arc_netmgmt_beacon_decode(const uint8_t* in, size_t len,
+                                            arc_netmgmt_beacon_t* msg)
+{
+    if (in == NULL || msg == NULL) return ARC_ERR_BAD_ARG;
+    if (len != ARC_NETMGMT_BEACON_PAYLOAD_SIZE) return ARC_ERR_BAD_LENGTH;
+    msg->hop_index =
+        ((uint32_t)in[0] << 24) |
+        ((uint32_t)in[1] << 16) |
+        ((uint32_t)in[2] << 8)  |
+        ((uint32_t)in[3]);
+    msg->frame_count = in[4];
+    msg->flags = in[5];
+    return ARC_OK;
+}

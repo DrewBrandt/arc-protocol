@@ -19,7 +19,7 @@ extern "C" {
 // ----------------------------------------------------------------------
 // Protocol version. Bump when the wire format changes incompatibly.
 // ----------------------------------------------------------------------
-#define ARC_PROTOCOL_VERSION 1
+#define ARC_PROTOCOL_VERSION 2
 
 // ----------------------------------------------------------------------
 // Sizing constants.
@@ -74,7 +74,11 @@ extern "C" {
 #define ARC_FLAG_RELIABLE   0x01  // sender expects ack, will retry on timeout
 #define ARC_FLAG_URGENT     0x02  // prioritize over queued traffic
 #define ARC_FLAG_ACK        0x04  // this frame is itself an ack
-// 0x08 - 0x80 reserved
+#define ARC_FLAG_MORE       0x08  // superframe MAC: more downlink frames follow
+                                  // this one in the current superframe; the
+                                  // command (uplink) window opens on the first
+                                  // frame with MORE clear. See SUPERFRAME_MAC.
+// 0x10 - 0x80 reserved
 
 // ----------------------------------------------------------------------
 // Protocol families.
@@ -92,6 +96,7 @@ extern "C" {
 #define ARC_NETMGMT_HEARTBEAT       0x01
 #define ARC_NETMGMT_ACK             0x02
 #define ARC_NETMGMT_SESSION_RESET   0x03
+#define ARC_NETMGMT_BEACON          0x04  // superframe MAC beacon (see SUPERFRAME_MAC)
 
 // ----------------------------------------------------------------------
 // Result codes.
@@ -173,6 +178,15 @@ arc_result_t arc_frame_parse(const uint8_t* in, size_t len, arc_frame_t* frame);
 int arc_frame_build_ack(uint8_t* out, size_t out_capacity,
                         const arc_frame_t* original,
                         uint8_t my_session, uint16_t my_seq);
+
+// ----------------------------------------------------------------------
+// In-place OR a flag bit into an already-built frame's FLAGS byte and fix
+// up the CRC. Lets a forwarder (e.g. the superframe MAC tagging telemetry
+// with ARC_FLAG_MORE) re-stamp frames it did not originate without a full
+// parse/rebuild. `frame` is a complete unencoded frame (LEN through CRC).
+// Returns ARC_OK, or a negative arc_result_t on a malformed frame.
+// ----------------------------------------------------------------------
+arc_result_t arc_frame_set_flag(uint8_t* frame, size_t len, uint8_t flag);
 
 #ifdef __cplusplus
 }

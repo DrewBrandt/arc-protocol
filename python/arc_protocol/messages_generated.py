@@ -18,6 +18,7 @@ class NetMgmtType(IntEnum):
     HEARTBEAT = protocol.NETMGMT_HEARTBEAT
     ACK = protocol.NETMGMT_ACK
     SESSION_RESET = protocol.NETMGMT_SESSION_RESET
+    BEACON = protocol.NETMGMT_BEACON
 
 
 @dataclass(frozen=True)
@@ -33,10 +34,34 @@ class Ack:
         return cls(seq=int.from_bytes(payload[0:2], "big"))
 
 
+@dataclass(frozen=True)
+class Beacon:
+    hop_index: int
+    frame_count: int
+    flags: int
+
+    def encode(self) -> bytes:
+        return b"".join((
+            _u32(self.hop_index, "hop_index").to_bytes(4, "big"),
+            _u8(self.frame_count, "frame_count").to_bytes(1, "big"),
+            _u8(self.flags, "flags").to_bytes(1, "big"),
+        ))
+
+    @classmethod
+    def decode(cls, payload: bytes) -> "Beacon":
+        _require_len(payload, 6, "NETMGMT BEACON")
+        return cls(
+            hop_index=int.from_bytes(payload[0:4], "big"),
+            frame_count=payload[4],
+            flags=payload[5],
+        )
+
+
 class FcCoordType(IntEnum):
     FLIGHT_TELEMETRY = 0x10
     AIRBRAKE_TELEMETRY = 0x11
     PAYLOAD_TELEMETRY = 0x12
+    SET_AIRBRAKE_ANGLE = 0x22
 
 FC_COORD_STAGE_UNKNOWN = 0x00
 FC_COORD_STAGE_PAD = 0x01
@@ -245,6 +270,19 @@ class PayloadTelemetry:
         )
 
 
+@dataclass(frozen=True)
+class SetAirbrakeAngle:
+    angle_cdeg: int
+
+    def encode(self) -> bytes:
+        return _i16(self.angle_cdeg, "angle_cdeg").to_bytes(2, "big", signed=True)
+
+    @classmethod
+    def decode(cls, payload: bytes) -> "SetAirbrakeAngle":
+        _require_len(payload, 2, "FC_COORD SET_AIRBRAKE_ANGLE")
+        return cls(angle_cdeg=int.from_bytes(payload[0:2], "big", signed=True))
+
+
 class RadioType(IntEnum):
     SET_FREQUENCY = 0x01
     SET_TX_POWER = 0x02
@@ -340,6 +378,8 @@ def decode_netmgmt(type: int, payload: bytes) -> object | None:
     msg_type = NetMgmtType(type)
     if msg_type is NetMgmtType.ACK:
         return Ack.decode(payload)
+    if msg_type is NetMgmtType.BEACON:
+        return Beacon.decode(payload)
     _require_empty(payload, msg_type.name)
     return None
 
@@ -352,6 +392,8 @@ def decode_fc_coord(type: int, payload: bytes) -> object | None:
         return AirbrakeTelemetry.decode(payload)
     if msg_type is FcCoordType.PAYLOAD_TELEMETRY:
         return PayloadTelemetry.decode(payload)
+    if msg_type is FcCoordType.SET_AIRBRAKE_ANGLE:
+        return SetAirbrakeAngle.decode(payload)
     _require_empty(payload, msg_type.name)
     return None
 

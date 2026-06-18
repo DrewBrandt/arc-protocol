@@ -83,6 +83,30 @@ TEST(netmgmt_ack_decode_bad_length)
     ASSERT_EQ(arc_netmgmt_ack_decode(buf, 1, &out), ARC_ERR_BAD_LENGTH);
 }
 
+TEST(netmgmt_beacon_roundtrip)
+{
+    arc_netmgmt_beacon_t in = { .hop_index = 0x01020304, .frame_count = 9, .flags = 0x01 };
+    uint8_t buf[8];
+    int n = arc_netmgmt_beacon_encode(&in, buf, sizeof(buf));
+    ASSERT_EQ(n, ARC_NETMGMT_BEACON_PAYLOAD_SIZE);
+    const uint8_t expected[] = {0x01, 0x02, 0x03, 0x04, 0x09, 0x01};
+    ASSERT_BYTES_EQ(buf, expected, 6);
+
+    arc_netmgmt_beacon_t out;
+    ASSERT_EQ(arc_netmgmt_beacon_decode(buf, n, &out), ARC_OK);
+    ASSERT_EQ(out.hop_index, 0x01020304u);
+    ASSERT_EQ(out.frame_count, 9);
+    ASSERT_EQ(out.flags, 0x01);
+}
+
+TEST(netmgmt_beacon_decode_bad_length)
+{
+    const uint8_t buf[7] = {0};
+    arc_netmgmt_beacon_t out;
+    ASSERT_EQ(arc_netmgmt_beacon_decode(buf, 7, &out), ARC_ERR_BAD_LENGTH);
+    ASSERT_EQ(arc_netmgmt_beacon_decode(buf, 5, &out), ARC_ERR_BAD_LENGTH);
+}
+
 // ----------------------------------------------------------------------
 // VIDEO SET_BITRATE
 // ----------------------------------------------------------------------
@@ -506,6 +530,20 @@ TEST(fc_coord_payload_telemetry_roundtrip)
     ASSERT_EQ(out.percent_complete, 42);
 }
 
+TEST(fc_coord_set_airbrake_angle_roundtrip)
+{
+    arc_fc_coord_set_airbrake_angle_t in = { .angle_cdeg = 1234 };
+    uint8_t buf[ARC_FC_COORD_SET_AIRBRAKE_ANGLE_PAYLOAD_SIZE];
+    int n = arc_fc_coord_set_airbrake_angle_encode(&in, buf, sizeof(buf));
+    ASSERT_EQ(n, ARC_FC_COORD_SET_AIRBRAKE_ANGLE_PAYLOAD_SIZE);
+    const uint8_t expected[] = {0x04, 0xD2};
+    ASSERT_BYTES_EQ(buf, expected, sizeof(expected));
+
+    arc_fc_coord_set_airbrake_angle_t out;
+    ASSERT_EQ(arc_fc_coord_set_airbrake_angle_decode(buf, n, &out), ARC_OK);
+    ASSERT_EQ(out.angle_cdeg, 1234);
+}
+
 // ----------------------------------------------------------------------
 // RADIO
 // ----------------------------------------------------------------------
@@ -747,6 +785,8 @@ int main(void)
     RUN(netmgmt_ack_roundtrip);
     RUN(netmgmt_ack_buffer_too_small);
     RUN(netmgmt_ack_decode_bad_length);
+    RUN(netmgmt_beacon_roundtrip);
+    RUN(netmgmt_beacon_decode_bad_length);
 
     RUN(video_set_bitrate_roundtrip);
     RUN(video_set_bitrate_max);
@@ -772,6 +812,7 @@ int main(void)
     RUN(fc_coord_flight_telemetry_roundtrip);
     RUN(fc_coord_airbrake_telemetry_roundtrip);
     RUN(fc_coord_payload_telemetry_roundtrip);
+    RUN(fc_coord_set_airbrake_angle_roundtrip);
 
     RUN(radio_set_frequency_roundtrip);
     RUN(radio_set_tx_power_roundtrip_negative);

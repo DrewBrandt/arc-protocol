@@ -22,6 +22,19 @@ int arc_netmgmt_ack_encode(const arc_netmgmt_ack_t* msg,
 arc_result_t arc_netmgmt_ack_decode(const uint8_t* in, size_t len,
                                             arc_netmgmt_ack_t* msg);
 
+#define ARC_NETMGMT_BEACON_PAYLOAD_SIZE  0x06
+
+typedef struct {
+    uint32_t hop_index;
+    uint8_t frame_count;
+    uint8_t flags;
+} arc_netmgmt_beacon_t;
+
+int arc_netmgmt_beacon_encode(const arc_netmgmt_beacon_t* msg,
+                                   uint8_t* out, size_t out_capacity);
+arc_result_t arc_netmgmt_beacon_decode(const uint8_t* in, size_t len,
+                                            arc_netmgmt_beacon_t* msg);
+
 #ifdef __cplusplus
 }
 #endif

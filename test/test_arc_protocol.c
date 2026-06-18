@@ -406,6 +406,30 @@ TEST(ack_addresses_swapped)
     ASSERT_EQ(ack.payload[1], 0xCD);
 }
 
+TEST(set_flag_restamps_and_fixes_crc)
+{
+    uint8_t frame[64];
+    const uint8_t payload[] = {0xDE, 0xAD, 0xBE, 0xEF};
+    int n = arc_frame_build(frame, sizeof(frame),
+                            ARC_ADDR_RADIO_CMD, ARC_ADDR_GROUND,
+                            ARC_FLAG_RELIABLE, 7, 0x1234,
+                            ARC_FAMILY_FC_COORD, 0x10,
+                            payload, sizeof(payload));
+    ASSERT(n > 0);
+
+    // OR in MORE; frame must still parse (CRC fixed) and keep prior flags.
+    ASSERT_EQ(arc_frame_set_flag(frame, (size_t)n, ARC_FLAG_MORE), ARC_OK);
+    arc_frame_t f;
+    ASSERT_EQ(arc_frame_parse(frame, n, &f), ARC_OK);
+    ASSERT_EQ(f.flags & ARC_FLAG_MORE, ARC_FLAG_MORE);
+    ASSERT_EQ(f.flags & ARC_FLAG_RELIABLE, ARC_FLAG_RELIABLE);
+    ASSERT_EQ(f.payload_len, 4);
+    ASSERT_EQ(f.payload[0], 0xDE);
+
+    // Bad length is rejected.
+    ASSERT_EQ(arc_frame_set_flag(frame, (size_t)n - 1, ARC_FLAG_MORE), ARC_ERR_BAD_LENGTH);
+}
+
 // ----------------------------------------------------------------------
 // Test runner.
 // ----------------------------------------------------------------------
@@ -444,6 +468,7 @@ int main(void)
 
     printf("\nAck handling:\n");
     RUN(ack_addresses_swapped);
+    RUN(set_flag_restamps_and_fixes_crc);
 
     printf("\n==================\n");
     printf("Passed: %d / %d\n", tests_run - tests_failed, tests_run);
